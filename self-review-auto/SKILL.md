@@ -72,6 +72,12 @@ spawning subagents; their working directory is the reviewed repository.
   (the task-output tool with blocking, or a wait/monitor tool) instead of
   replying. A turn that ends with work in flight stops the review until
   someone resumes you.
+- **No idle time between calls.** Launch agents in the foreground (several
+  in one message when they run in parallel) so each call returns its
+  result. Never wait with `sleep`, polling loops over output files, or
+  "until the file stops changing" monitors; if a call does come back
+  backgrounded, make one blocking wait on it. Agent time should account for
+  nearly all of the review's wall time; report the gap if it doesn't.
 - **Model tier:** the Hygiene and File Size verify reviewers run on the
   smallest, fastest model tier the `Agent` tool offers in this environment
   (whatever is listed and available; don't name a model that isn't). If no
@@ -103,7 +109,10 @@ Create a scratch directory outside the repository (`mktemp -d`). Note the
 repository root, the changed-file list, the repo's cheapest documented check
 (a typecheck or lint script from `CLAUDE.md`, `AGENTS.md`, `README` or
 `package.json`/`Makefile`/`justfile`, scoped to the affected packages if the
-repo supports that), and how to run a single test file.
+repo supports that), how to run a single test file, and, if documented:
+the repo's **structural checks** (dependency boundaries, cycle or layering
+checks: fast and repo-wide) and its **incremental mutation command** (one
+that mutates only changed files).
 
 **Scope snapshot.** Before each review round or sequential iteration, write
 the scope to `<scratch>/scope-<n>.diff`: the scope command's output, then
@@ -138,12 +147,12 @@ checks Correctness's own fixes.
 |---|---|---|---:|---|
 | A | 0 | Code Reuse | 2 | `pass-00-code-reuse.md` |
 | A | 1 | Architecture | 3 | `pass-01-architecture.md` |
-| B | 2 | Security | 4 | `pass-02-security.md` |
+| B | 2 | Security | 3 | `pass-02-security.md` |
 | B | 3 | Type Safety | 3 | `pass-03-type-safety.md` |
-| B | 4 | Testing | 4 | `pass-04-testing.md` |
-| B | 5+6+8 | Hygiene | 2 | `pass-05-ai-slop.md`, `pass-06-nits.md` and `pass-08-comments.md`, together |
+| B | 4 | Testing | 3 | `pass-04-testing.md` |
+| B | 5+6+8 | Hygiene | 1 | `pass-05-ai-slop.md`, `pass-06-nits.md` and `pass-08-comments.md`, together |
 | B | 7 | File Size | 2 | `pass-07-file-size.md` — only the files the Step 3 gate lists |
-| C | 12 | Documentation | 3 | `self-review` Steps 2e and 2f (stale-duplicate half): update the High/Medium docs and stale restatements the diff makes wrong |
+| C | 12 | Documentation | 2 | `self-review` Steps 2e and 2f (stale-duplicate half): update the High/Medium docs and stale restatements the diff makes wrong |
 | C | 10 | Cross-PR | 2 | `pass-10-cross-pr.md` — only when the branch has an open PR (`self-review` Step 2d); otherwise *skipped*. Changes needed in the other PR are deferred |
 | C | 13 | Adversarial cold read | 2 | `self-review` Step 2g — only when a model of a different family is reachable from the shell and the code may leave the environment; otherwise *skipped*. Each iteration sends the current diff, confirms or refutes each point against the code, and fixes the ones that hold |
 | C | 9 | Correctness | 7 | `pass-09-correctness.md`, plus the historical report (wait for its notification before starting pass 9; if it failed, say so in the prompt) and `self-review` Step 2f's "Claims That Don't Hold" half |
@@ -191,7 +200,7 @@ loop:
         returned needs_cross_file findings -> one more cross-file fixer
     B4: integration check (below)
   for each pass still active: if round == its max: status = ceiling; drop it
-  if active is empty: stop
+  if active is empty: B6 mutation gate; stop
   round += 1
   write scope snapshot; rerun the Step 3 gate
   findings = Agents(verify reviewer prompt, one per active pass, in ONE message)
@@ -231,14 +240,25 @@ package. B4 checks the combined result.
    the round's snapshot is either owned by a fixer job or was edited by a
    cross-file fixer. Anything else is a violation; record it in the log and
    name it in the report.
-2. Run the cheap check once, and the test files covering every file changed
-   this round.
+2. Run the cheap check once, the structural checks, and the test files
+   covering every file changed this round. A fix that moves code (splits,
+   extractions, shared types) is the usual source of a new import cycle;
+   catch it here, not in the final validation.
 3. On failure, run one repair agent (repair prompt) with the failure
    output, then rerun the check and tests. Up to 2 repair attempts; if it
    still fails, the repair agent reverts the edits it can attribute to the
    failing finding and defers that finding with the failure as the reason.
    Never leave the tree failing a check that passed before the round.
 4. `--staged` only: stage the paths edited this round.
+
+**B6, mutation gate.** When stage B ends (no pass left active), run the
+repo's incremental mutation command once, if it has one. Surviving mutants
+in changed code, stale ignore entries, or a mutation run that cannot start
+(a test that fails in the mutation tool's sandbox copy) are findings of
+pass 4 (Testing): send them through B2–B4 once, preferring a test that kills
+the mutant over an ignore entry, then rerun the command once. Anything still
+failing is deferred with the output as the reason. Stage D ends with the
+same gate when it changed code. Report each gate's duration and result.
 
 **B5, verify.** Fresh read-only reviewers, one per pass still active, run
 in parallel on the current scope. Their findings re-enter at B2. This
@@ -264,7 +284,8 @@ iteration changed code (not only docs), run one settle round:
    in parallel, on that scope; Hygiene on the small model tier.
 3. Their findings go through B2–B4 exactly as in stage B (cross-file fixer,
    partitioned file fixers, integration check with repair).
-4. Stop. There is no second round and no loop back into Correctness: the
+4. Run the B6 mutation gate on the result.
+5. Stop. There is no second round and no loop back into Correctness: the
    settle fixes are mechanical (tests, types, hygiene), and Step 5's full
    validation checks them.
 
@@ -495,6 +516,7 @@ aren't included — say so under the table.
 | B | Cross-file fixers | 2 | — | 6 | 0 | — | — | 3m 05s | 2m 10s (r1) | 95,000 |
 | B | File fixers | 7 | — | 31 | 1 | — | — | 9m 40s | 2m 30s (r1, job 2) | 260,000 |
 | B | Integration checks | 3 | — | — | — | 1 repair | 2m 30s | 1m 10s | — | 40,000 |
+| B | Mutation gate | 1 | — | 2 | 0 | 2 survivors killed | 6m 40s | 1m 30s | — | 30,000 |
 | B | Stage B | — | — | — | — | — | 14m 30s | — | — | — |
 | 7 | File Size | 0 | — | — | — | clean (gate: no file ≥ 300 lines) | — | — | — | — |
 | 11 | Historical intel | 1 | — | — | — | info | 1m 40s | 1m 40s | — | 61,200 |

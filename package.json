@@ -19,6 +19,7 @@
     "scripts/",
     "review/",
     "self-review/",
+    "self-review-auto/",
     "review-respond/",
     "spec-workflow/",
     "adversarial-spec-review/",
@@ -37,6 +38,7 @@
     "skills": [
       "./review",
       "./self-review",
+      "./self-review-auto",
       "./review-respond",
       "./spec-workflow",
       "./adversarial-spec-review",

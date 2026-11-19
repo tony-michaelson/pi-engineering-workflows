@@ -66,9 +66,15 @@ heavy test runs (e2e, mutation, full validate) at once"; how to treat
 shared-host resources; never read secret files or print tokens; "if a
 permission prompt is denied, don't work around it, report it".
 
-**Model choice.** Use the model the user asked for on every `Agent` call
-(pass it explicitly). `self-review-auto` may put its Hygiene and File Size
-reviewers on the smallest tier; everything else uses the chosen model.
+**Model choice.** Use the user's primary model via the runner's model
+option or a pinned role profile. Before branching, if the user approved a
+fallback for this repo, resolve its exact installed model ID and verify
+that the runner can select it for builders, reviewers and fixers without
+changing the primary profiles. Record both models and the role names in
+the run checkpoint. For example, when the user approves Sol 6.2 with the
+latest Claude Sonnet as fallback, preflight both before starting. Do not
+send repo content to an unapproved provider. Apply the quota handoff
+below to every role, including the review driver.
 
 ## Step 1: Kickoff (per phase)
 
@@ -222,7 +228,8 @@ phase. After stopping, start nothing new and file no follow-ups unless asked.
 
 ### Review breakdown
 <one row per pass / stage-B round / stage D with start → end, duration,
-iterations, result; the slowest single calls>
+iterations, result; the slowest single calls; model handoffs, aborted calls,
+and quota wait (separate from active build/review time)>
 
 ### Post-review checks
 <one row per step with duration and result, including failures and what
@@ -244,8 +251,29 @@ fixed them>
   finish) and start a new one that resumes from its report.
 - **Permission denials stop the step.** Don't route around a denied action;
   tell the user what was blocked and why it was needed.
-- **Usage limits:** if the session hits one, pause and resume stopped
-  agents with `SendMessage` when it resets; don't restart them.
+- **Primary quota hit → hand off immediately.** On an explicit usage-cap
+  error, don't end the turn or ask the user to say “continue” when an
+  approved fallback is ready. Confirm the failed job stopped. Checkpoint
+  the branch/base, tracked and untracked changes, unfinished work, last
+  passing checks, and any provider-reported reset time in scratch outside
+  the repo. Preserve partial edits. Launch the matching fallback role
+  **in the same turn** with that checkpoint and the same scope and rules.
+  Tell the user which model is taking over. A launch is not completion.
+- **Fallback abort is not a quota error.** Check for an explicit stop,
+  cancellation or permission denial first. Respect it: don't relaunch, and
+  cancel any wake-up for the run. For an unexplained abort with no stop in
+  effect, confirm there is no live job, inspect partial edits, and retry
+  the fallback at most once from the updated checkpoint. If that fails,
+  both models are blocked, or no approved fallback is available, report
+  the exact blocker and resume point. Don't loop or overwrite work.
+- **Return to primary at a safe checkpoint.** If the provider supplies a
+  reset time and an authorized scheduler is available, schedule and verify
+  one retry for that time. A wake-up must not launch a second writer or
+  resume a stopped run. Otherwise, say no retry was scheduled. Keep working
+  on the fallback either way. Once the reset is due, retry the primary at
+  the next handoff after the active fallback job finishes; switch back only
+  on success. If the reset time is unknown, check once at a later phase
+  boundary, not on every call.
 - **Load-sensitive numbers:** budgets and stress results are measured on a
   shared machine; report the load average next to any timing you cite.
 - **Keep the user's view current** with short updates at each stage change,

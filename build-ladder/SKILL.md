@@ -45,6 +45,15 @@ and record the answer (memory, if available) so later phases don't re-ask.
 
 ## Step 0: Preflight (once)
 
+Quota awareness: read `~/.pi/agent/memory/openai-quota-resets.md` if it exists.
+It records the provider's 5-hour usage-limit reset times for the shared OpenAI
+business seat. Note the next reset at or after "now" and the file's
+valid-through time; if "now" is past valid-through, treat the schedule as stale
+(refresh before trusting it). Carry the next reset time into the run checkpoint,
+use it to time any primary-retry scheduling (see the quota handoff rule), and
+pass the same file path to every builder, review driver and fixer you launch so
+subagents share the same quota picture.
+
 Read, and keep for every prompt you write:
 
 - The ladder: status table, every phase you will run, its **Notes** (the
@@ -110,7 +119,10 @@ commit follow.
 First read: <repo instructions>, the phase section in full, the ladder's
 Notes (standing gate, earlier decisions), the spec sections it cites, and
 the code earlier phases built that this one extends (name the files or
-patterns: ports, fakes, contract tests, how a package is added).
+patterns: ports, fakes, contract tests, how a package is added). Also read
+`~/.pi/agent/memory/openai-quota-resets.md` for the shared OpenAI seat's
+5-hour reset schedule; if it is still valid, keep the next reset in mind for
+any quota-sensitive work and don't assume the primary is available before it.
 
 Deliver everything in Delivers; make every Done-when check pass. Mark the
 phase in-progress in the status table now and complete (with today's date)
@@ -266,7 +278,10 @@ fixed them>
   approved fallback is ready. Confirm the failed job stopped. Checkpoint
   the branch/base, tracked and untracked changes, unfinished work, last
   passing checks, and any provider-reported reset time in scratch outside
-  the repo. Preserve partial edits. Launch the matching fallback role
+  the repo. Cross-check and update
+  `~/.pi/agent/memory/openai-quota-resets.md`: if the error carries a reset
+  time newer than the file (or the file is stale/missing), record it there so
+  the next session and every subagent see it. Preserve partial edits. Launch the matching fallback role
   **in the same turn** with that checkpoint and the same scope and rules.
   Tell the user which model is taking over. A launch is not completion.
 - **Fallback abort is not a quota error.** Check for an explicit stop,
@@ -278,7 +293,8 @@ fixed them>
   the exact blocker and resume point. Don't loop or overwrite work.
 - **Return to primary at a safe checkpoint.** If the provider supplies a
   reset time and an authorized scheduler is available, schedule and verify
-  one retry for that time. A wake-up must not launch a second writer or
+  one retry for that time (prefer the next reset from
+  `~/.pi/agent/memory/openai-quota-resets.md` when it is still valid). A wake-up must not launch a second writer or
   resume a stopped run. Otherwise, say no retry was scheduled. Keep working
   on the fallback either way. Once the reset is due, retry the primary at
   the next handoff after the active fallback job finishes; switch back only

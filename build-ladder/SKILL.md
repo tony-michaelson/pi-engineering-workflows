@@ -76,6 +76,16 @@ latest Claude Sonnet as fallback, preflight both before starting. Do not
 send repo content to an unapproved provider. Apply the quota handoff
 below to every role, including the review driver.
 
+The coordinator is a role too, and it cannot switch itself once its own
+provider refuses requests: that turn ends with the error and no code runs.
+Subagent handoff therefore does not protect the run. Before starting,
+confirm that a session-level fallback is active (a Pi extension that, on a
+usage-limit error in the coordinator, calls `setModel` to the fallback and
+sends a continue message), and test that it is loaded. If none exists, stop
+and tell the user; do not start an unattended run that a quota error would
+stall. Tony's setup: `~/.pi/agent/extensions/quota-fallback`, switching
+back with `/quota-primary`.
+
 ## Step 1: Kickoff (per phase)
 
 1. Start the phase timer: `date +%s` into a scratch file. Every later stage

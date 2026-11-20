@@ -461,6 +461,7 @@ test("manifest includes every workflow and keeps publication disabled", async ()
     "./self-review",
     "./review-respond",
     "./spec-workflow",
+    "./spec",
     "./adversarial-spec-review",
     "./test-plan",
     "./validation-standards",

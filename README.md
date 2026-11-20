@@ -43,6 +43,7 @@ or use `/reload` after installation. The skills also have direct entry points:
 /skill:review-respond owner/repo#42
 /skill:self-review --staged
 /skill:spec-workflow
+/skill:spec document an existing feature
 /skill:adversarial-spec-review docs/specs/import-workflow.md
 /skill:test-plan
 /skill:validation-standards
@@ -65,6 +66,7 @@ Pi may assign numeric command suffixes when multiple extensions use the same nam
 - `self-review/SKILL.md`: local scope selection, approved fixes, and handoff.
 - `review-respond/`: feedback triage, approved fixes/pushes, replies, and resolution.
 - `spec-workflow/`: drafting workflow, shared spec standard, and narrative/plan templates.
+- [`spec/`](spec/SKILL.md): the original ten-section domain-document workflow adapted for Pi, available explicitly as `/skill:spec`.
 - `adversarial-spec-review/`: spec challenge workflow and cold-read handoff template.
 - `test-plan/`: contract-to-check planning and a coverage-map template.
 - `validation-standards/`: execution guidance, shared evidence/safety standards, and report template.
@@ -110,6 +112,13 @@ approval and does not automatically publish feedback.
 acceptance criteria, and consequential decisions. It can propose an end-to-end
 phased plan without requiring a tracker or proprietary generator. Facts,
 assumptions, examples, and open questions remain distinct. File writes need approval.
+
+Use `/skill:spec` to opt into the ten-section format from
+[tony-michaelson/skills](https://github.com/tony-michaelson/skills). It retains
+collaborative elicitation, the distinction between the domain and its
+implementation, concision, and the blast-radius assessment. It also covers
+existing features without implying implementation work. The `/spec` command
+still uses `spec-workflow`.
 
 `/spec-review` uses the same spec standard and the bundled spec lens. It quotes
 claims, verifies objections, and reports confirmed problems separately from

@@ -127,7 +127,7 @@ confirmation**.
   model, then go to design. Check that it is accepted and has no open
   questions; if it does, say so before planning.
 - **Non-trivial without a spec:** **stop.** Tell the user the work needs a
-  domain document first and point to `/skill:spec-workflow`. Do not offer to
+  domain document first and point to `/skill:spec` (the ten-section domain document) or `/skill:spec-workflow` (lighter drafting). Do not offer to
   continue and do not create phases.
 
 ### 4. Design

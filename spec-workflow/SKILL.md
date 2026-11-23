@@ -99,7 +99,9 @@ changes; do not rewrite unrelated sections or metadata to match a new template.
 ## 4. Add a plan only when useful
 
 For work needing multiple increments, offer the
-[phased plan template](assets/plan-template.md). A small isolated change may need
+[phased plan template](assets/plan-template.md). When the user wants an executable
+ladder for [build-ladder](../build-ladder/SKILL.md), hand off to
+[create-ladder](../create-ladder/SKILL.md) instead of writing one here. A small isolated change may need
 only acceptance criteria, not a separate planning artifact.
 
 Each phase should deliver an observable end-to-end increment, identify its

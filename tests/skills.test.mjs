@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { loadSkillsFromDir } from "@earendil-works/pi-coding-agent";
 
-for (const name of ["commit-workflow", "fix-ci", "spec", "test-writing"]) {
+for (const name of ["commit-workflow", "create-ladder", "fix-ci", "spec", "test-writing"]) {
   test(`${name} is discoverable as a portable skill by the pinned Pi SDK`, () => {
     const directory = new URL(`../${name}/`, import.meta.url);
     const result = loadSkillsFromDir({

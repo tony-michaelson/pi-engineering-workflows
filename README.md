@@ -44,6 +44,7 @@ or use `/reload` after installation. The skills also have direct entry points:
 /skill:self-review --staged
 /skill:spec-workflow
 /skill:spec document an existing feature
+/skill:create-ladder specs/import-workflow.md
 /skill:adversarial-spec-review docs/specs/import-workflow.md
 /skill:test-plan
 /skill:validation-standards
